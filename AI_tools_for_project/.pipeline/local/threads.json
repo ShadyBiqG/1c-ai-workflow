@@ -1,0 +1,41 @@
+{
+  "protocol_version": 1,
+  "project_id": "local-b6e2308a2ae36e158b324b8173d7a1ad",
+  "roles": {
+    "controller": {
+      "thread_id": "019fea32-5330-7f02-bacc-5d6a2783d8b4",
+      "host_id": "local",
+      "title": "Controller",
+      "model": "gpt-5.6-terra",
+      "effort": "high"
+    },
+    "manager": {
+      "thread_id": "019fe78d-1658-7592-8c27-d68cf233e05d",
+      "host_id": "local",
+      "title": "Manager",
+      "model": "gpt-5.6-terra",
+      "effort": "high"
+    },
+    "plan": {
+      "thread_id": "019fe78d-598a-7c20-89b9-ec6b769432d0",
+      "host_id": "local",
+      "title": "Plan",
+      "model": "gpt-5.6-sol",
+      "effort": "high"
+    },
+    "work": {
+      "thread_id": "019fe78d-8822-7de3-b3d5-438f90f9f652",
+      "host_id": "local",
+      "title": "Work",
+      "model": "gpt-5.6-luna",
+      "effort": "medium"
+    },
+    "deploy": {
+      "thread_id": "019fe78d-c5fa-7fe1-8c98-7bbc82392399",
+      "host_id": "local",
+      "title": "Deploy",
+      "model": "gpt-5.6-luna",
+      "effort": "medium"
+    }
+  }
+}

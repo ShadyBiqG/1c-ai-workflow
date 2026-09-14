@@ -1,0 +1,11 @@
+{
+    "protocol_version":  1,
+    "action":  "initialize",
+    "status":  "succeeded",
+    "session_id":  "32aaea71-de6b-4a82-a2af-740b042871ec",
+    "model":  "opus",
+    "effort":  "high",
+    "compact_boundary":  false,
+    "compact_metadata":  null,
+    "completed_at":  "2026-08-09T17:26:49.7854657Z"
+}

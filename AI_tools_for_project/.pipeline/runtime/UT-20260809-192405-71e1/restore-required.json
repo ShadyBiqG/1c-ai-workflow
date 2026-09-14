@@ -1,0 +1,12 @@
+{
+    "protocol_version":  1,
+    "task_id":  "UT-20260809-192405-71e1",
+    "project_id":  "local-b6e2308a2ae36e158b324b8173d7a1ad",
+    "roles":  [
+                  "manager",
+                  "plan",
+                  "work",
+                  "deploy"
+              ],
+    "status":  "required"
+}

@@ -1,0 +1,12 @@
+{
+    "target":  "plan",
+    "kind":  "codex",
+    "id":  "019fe78d-598a-7c20-89b9-ec6b769432d0",
+    "status":  "succeeded",
+    "lock_handoff":  "desktop_archive_cli_compact_cli_archive",
+    "unarchived_at":  "2026-08-10T05:48:10.5444907Z",
+    "item_id":  "019fea36-dcbc-7da3-b365-6b0839e45e91",
+    "item_type":  "contextCompaction",
+    "rearchived_at":  "2026-08-10T05:48:37.1256263Z",
+    "completed_at":  "2026-08-10T05:48:35.904Z"
+}

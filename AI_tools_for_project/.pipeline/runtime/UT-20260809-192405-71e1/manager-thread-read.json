@@ -1,0 +1,49 @@
+{
+  "protocol_version": 1,
+  "task_id": "UT-20260809-192405-71e1",
+  "captured_at": "2026-08-10T05:55:37.033Z",
+  "app_read": {
+    "schemaVersion": 1,
+    "thread": {
+      "id": "019fe78d-1658-7592-8c27-d68cf233e05d",
+      "kind": "codex",
+      "hostId": "local",
+      "title": "Manager",
+      "status": {
+        "type": "idle"
+      }
+    },
+    "turns": [
+      {
+        "id": "019fea3c-652b-7091-bbcb-9a0dcbd3f208",
+        "status": "completed",
+        "error": null,
+        "startedAt": 1786341254,
+        "completedAt": 1786341297,
+        "durationMs": 42771,
+        "items": [
+          {
+            "type": "userMessage",
+            "id": "item-27",
+            "content": [
+              {
+                "type": "text",
+                "text": "<codex_delegation>\n  <source_thread_id>019fea32-5330-7f02-bacc-5d6a2783d8b4</source_thread_id>\n  <input>TASK_READY UT-20260809-192405-71e1 Read .pipeline/tasks/UT-20260809-192405-71e1/request.md and compaction.json, then continue as Manager.</input>\n</codex_delegation>",
+                "codexDelegation": {
+                  "sourceThreadId": "019fea32-5330-7f02-bacc-5d6a2783d8b4",
+                  "input": "TASK_READY UT-20260809-192405-71e1 Read .pipeline/tasks/UT-20260809-192405-71e1/request.md and compaction.json, then continue as Manager."
+                }
+              }
+            ]
+          },
+          {
+            "type": "agentMessage",
+            "id": "item-31",
+            "text": "TASK_READY UT-20260809-192405-71e1 accepted.",
+            "phase": "final_answer"
+          }
+        ]
+      }
+    ]
+  }
+}

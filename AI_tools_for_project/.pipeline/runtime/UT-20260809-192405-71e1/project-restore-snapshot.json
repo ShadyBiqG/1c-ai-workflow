@@ -1,0 +1,40 @@
+{
+    "protocol_version":  1,
+    "task_id":  "UT-20260809-192405-71e1",
+    "captured_at":  "2026-08-10T05:50:09.265Z",
+    "project_id":  "local-b6e2308a2ae36e158b324b8173d7a1ad",
+    "roles":  [
+                  {
+                      "role":  "manager",
+                      "thread_id":  "019fe78d-1658-7592-8c27-d68cf233e05d",
+                      "title":  "Manager",
+                      "project_id":  "local-b6e2308a2ae36e158b324b8173d7a1ad",
+                      "pinned":  false,
+                      "archived":  false
+                  },
+                  {
+                      "role":  "plan",
+                      "thread_id":  "019fe78d-598a-7c20-89b9-ec6b769432d0",
+                      "title":  "Plan",
+                      "project_id":  "local-b6e2308a2ae36e158b324b8173d7a1ad",
+                      "pinned":  false,
+                      "archived":  false
+                  },
+                  {
+                      "role":  "work",
+                      "thread_id":  "019fe78d-8822-7de3-b3d5-438f90f9f652",
+                      "title":  "Work",
+                      "project_id":  "local-b6e2308a2ae36e158b324b8173d7a1ad",
+                      "pinned":  false,
+                      "archived":  false
+                  },
+                  {
+                      "role":  "deploy",
+                      "thread_id":  "019fe78d-c5fa-7fe1-8c98-7bbc82392399",
+                      "title":  "Deploy",
+                      "project_id":  "local-b6e2308a2ae36e158b324b8173d7a1ad",
+                      "pinned":  false,
+                      "archived":  false
+                  }
+              ]
+}

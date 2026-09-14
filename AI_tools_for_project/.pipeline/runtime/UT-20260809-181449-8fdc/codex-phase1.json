@@ -1,0 +1,56 @@
+{
+    "protocol_version":  1,
+    "task_id":  "UT-20260809-181449-8fdc",
+    "status":  "awaiting_app_restore",
+    "receipts":  [
+                     {
+                         "target":  "manager",
+                         "kind":  "codex",
+                         "id":  "019fe78d-1658-7592-8c27-d68cf233e05d",
+                         "status":  "succeeded",
+                         "lock_handoff":  "desktop_archive_cli_compact_cli_archive",
+                         "unarchived_at":  "2026-08-09T18:15:30.1790771Z",
+                         "item_id":  "019fe7bc-d81b-7013-90c0-f155f533967d",
+                         "item_type":  "contextCompaction",
+                         "rearchived_at":  "2026-08-09T18:16:10.3999695Z",
+                         "completed_at":  "2026-08-09T18:16:08.061Z"
+                     },
+                     {
+                         "target":  "plan",
+                         "kind":  "codex",
+                         "id":  "019fe78d-598a-7c20-89b9-ec6b769432d0",
+                         "status":  "succeeded",
+                         "lock_handoff":  "desktop_archive_cli_compact_cli_archive",
+                         "unarchived_at":  "2026-08-09T18:16:11.1410615Z",
+                         "item_id":  "019fe7bd-6713-7ba0-aed0-56cc397803a9",
+                         "item_type":  "contextCompaction",
+                         "rearchived_at":  "2026-08-09T18:16:48.7537278Z",
+                         "completed_at":  "2026-08-09T18:16:46.484Z"
+                     },
+                     {
+                         "target":  "work",
+                         "kind":  "codex",
+                         "id":  "019fe78d-8822-7de3-b3d5-438f90f9f652",
+                         "status":  "succeeded",
+                         "lock_handoff":  "desktop_archive_cli_compact_cli_archive",
+                         "unarchived_at":  "2026-08-09T18:16:49.4504832Z",
+                         "item_id":  "019fe7be-058f-7f00-9027-ff13aa2b4699",
+                         "item_type":  "contextCompaction",
+                         "rearchived_at":  "2026-08-09T18:17:09.9928129Z",
+                         "completed_at":  "2026-08-09T18:17:08.197Z"
+                     },
+                     {
+                         "target":  "deploy",
+                         "kind":  "codex",
+                         "id":  "019fe78d-c5fa-7fe1-8c98-7bbc82392399",
+                         "status":  "succeeded",
+                         "lock_handoff":  "desktop_archive_cli_compact_cli_archive",
+                         "unarchived_at":  "2026-08-09T18:17:10.8985313Z",
+                         "item_id":  "019fe7be-58bb-7a00-be0f-8edbd8860749",
+                         "item_type":  "contextCompaction",
+                         "rearchived_at":  "2026-08-09T18:17:38.5897343Z",
+                         "completed_at":  "2026-08-09T18:17:36.463Z"
+                     }
+                 ],
+    "completed_at":  "2026-08-09T18:17:38.5962601Z"
+}

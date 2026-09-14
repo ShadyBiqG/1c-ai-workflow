@@ -1,0 +1,4 @@
+interface:
+  display_name: "1C Agentic Pipeline"
+  short_description: "Route persistent Codex roles for 1C delivery"
+  default_prompt: "Run the persistent Manager, Plan, Work, and Deploy workflow using artifact links and verified gates."

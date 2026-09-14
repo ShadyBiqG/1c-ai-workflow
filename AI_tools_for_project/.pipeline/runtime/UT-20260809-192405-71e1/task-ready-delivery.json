@@ -1,0 +1,11 @@
+{
+    "protocol_version":  1,
+    "task_id":  "UT-20260809-192405-71e1",
+    "status":  "completed",
+    "manager_thread_id":  "019fe78d-1658-7592-8c27-d68cf233e05d",
+    "turn_id":  "019fea3c-652b-7091-bbcb-9a0dcbd3f208",
+    "message_sha256":  "89668211532a030657e06e4f282ed0910736b81b3338519f98ab859a9cb2b17f",
+    "thread_read_sha256":  "439072014fcc15e70389c16d2daf28cff9895be6a7a74b27cf8739398da9c4b9",
+    "confirmed_at":  "2026-08-10T05:55:42.0408338Z",
+    "routing_release_message":  "ROUTING_RELEASED UT-20260809-192405-71e1 Read state.json and route the task to Plan."
+}

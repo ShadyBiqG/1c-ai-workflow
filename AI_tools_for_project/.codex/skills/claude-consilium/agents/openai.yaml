@@ -1,0 +1,4 @@
+interface:
+  display_name: "Claude Consilium"
+  short_description: "Call persistent Claude Code reviewers safely"
+  default_prompt: "Use Claude Code as a persistent second opinion through file and UTF-8 stdin transport."

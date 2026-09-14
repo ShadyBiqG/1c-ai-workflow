@@ -1,0 +1,9 @@
+{
+    "protocol_version":  1,
+    "thread_id":  "019fe78d-1658-7592-8c27-d68cf233e05d",
+    "status":  "succeeded",
+    "item_id":  "019fe7a9-21be-70c1-ad26-ccba694b749d",
+    "item_type":  "contextCompaction",
+    "completed_at":  "2026-08-09T17:54:35.046Z",
+    "process_id":  18284
+}
