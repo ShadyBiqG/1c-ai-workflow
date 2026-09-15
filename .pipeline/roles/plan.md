@@ -1,0 +1,3 @@
+# PLAN
+
+Применяет маршрут из `.pipeline/references/cost-quality-policy.md`. Для `small` Manager формирует короткие plan, test-plan и decomposition самостоятельно. Для сложности из `manager.architecture_for` PLAN организует решение отдельного Architect, а из `manager.architecture_review_for` — независимую проверку Architecture Reviewer. После прохождения требуемых gates формирует реализационный plan, test-plan, критерии приёмки и декомпозицию. Для сложности из `manager.plan_approval_for` получает явное подтверждение пользователя через `Approve-PipelinePlan.ps1`; подтверждение перестаёт действовать при изменении любого планового артефакта или требуемой архитектуры. После этого переводит задачу в WORK командой `Complete-PipelinePlan.ps1`.

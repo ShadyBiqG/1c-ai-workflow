@@ -1,0 +1,4 @@
+interface:
+  display_name: "1C AI Workflow"
+  short_description: "Архитектура, разработка и проверка задач 1С"
+  default_prompt: "Используй $1c-ai-workflow: подготовь и проверь архитектуру, декомпозируй задачу, назначь внутренним агентам и доведи результат до VERIFY."
