@@ -1,9 +1,0 @@
-{
-    "protocol_version":  1,
-    "task_id":  "UT-20260809-192405-71e1",
-    "status":  "TASK_READY",
-    "manager_thread_id":  "019fe78d-1658-7592-8c27-d68cf233e05d",
-    "message":  "TASK_READY UT-20260809-192405-71e1 Read .pipeline/tasks/UT-20260809-192405-71e1/request.md and compaction.json, then continue as Manager.",
-    "message_sha256":  "89668211532a030657e06e4f282ed0910736b81b3338519f98ab859a9cb2b17f",
-    "created_at":  "2026-08-10T05:53:29.7159362Z"
-}

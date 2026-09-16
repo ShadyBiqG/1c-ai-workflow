@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][ValidatePattern('^TASK-[0-9]{8}-[0-9]{6}-[a-f0-9]{4}$')][string]$TaskId,
     [Parameter(Mandatory = $true)][string]$ScenarioFile,
@@ -12,7 +12,7 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'PipelineState.psm1') -Force
 if ([string]::IsNullOrWhiteSpace($ProjectRoot)) { $ProjectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..\..')) }
 if (-not (Test-Path -LiteralPath $ScenarioFile -PathType Leaf)) { throw "Deploy scenario was not found: $ScenarioFile" }
-$configuration = Read-PipelineConfiguration -Path (Join-Path $ProjectRoot '.pipeline\pipeline.yaml')
+$configuration = Read-PipelineConfiguration -Path (Join-Path $ProjectRoot '.pipeline\pipeline.json')
 if (-not [bool]$configuration.deploy.enabled -or -not [bool]$configuration.deploy.available) { throw 'Deploy is disabled or unavailable.' }
 $taskDirectory = Join-Path $ProjectRoot ".pipeline\tasks\$TaskId"
 $statePath = Join-Path $taskDirectory 'state.json'

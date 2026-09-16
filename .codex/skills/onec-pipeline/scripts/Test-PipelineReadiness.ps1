@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [string]$ProjectRoot,
     [string]$ConfigurationPath
@@ -10,11 +10,17 @@ Import-Module (Join-Path $PSScriptRoot 'PipelineState.psm1') -Force
 
 if ([string]::IsNullOrWhiteSpace($ProjectRoot)) { $ProjectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..\..')) }
 else { $ProjectRoot = [IO.Path]::GetFullPath($ProjectRoot) }
-if ([string]::IsNullOrWhiteSpace($ConfigurationPath)) { $ConfigurationPath = Join-Path $ProjectRoot '.pipeline\pipeline.yaml' }
+if ([string]::IsNullOrWhiteSpace($ConfigurationPath)) { $ConfigurationPath = Join-Path $ProjectRoot '.pipeline\pipeline.json' }
 
 $blockers = New-Object Collections.Generic.List[string]
 $warnings = New-Object Collections.Generic.List[string]
 $details = [ordered]@{}
+
+$installedPath = Join-Path $ProjectRoot '.pipeline\installed.json'
+if (Test-Path -LiteralPath $installedPath -PathType Leaf) {
+    try { $details.pipeline_version = ([IO.File]::ReadAllText($installedPath, [Text.Encoding]::UTF8) | ConvertFrom-Json).pipeline_version }
+    catch { $warnings.Add("Не удалось прочитать .pipeline/installed.json: $($_.Exception.Message)") }
+}
 
 if (-not (Test-Path -LiteralPath $ProjectRoot -PathType Container)) { $blockers.Add("Каталог проекта не найден: $ProjectRoot") }
 
@@ -39,8 +45,20 @@ foreach ($skillName in @('onec-pipeline', '1c-ai-workflow')) {
 $gitCommand = Get-Command 'git' -ErrorAction SilentlyContinue
 if ($null -eq $gitCommand) { $blockers.Add('Git не найден в PATH.') }
 else {
-    $gitProbe = @(& git -C $ProjectRoot rev-parse --is-inside-work-tree 2>&1)
-    if ($LASTEXITCODE -ne 0 -or ($gitProbe -join '').Trim() -ne 'true') { $blockers.Add('Каталог проекта не находится внутри Git worktree.') }
+    $savedPreference = $ErrorActionPreference
+    $nativePreferenceExisted = Test-Path Variable:PSNativeCommandUseErrorActionPreference
+    if ($nativePreferenceExisted) { $savedNativePreference = $PSNativeCommandUseErrorActionPreference }
+    try {
+        $ErrorActionPreference = 'Continue'
+        if ($nativePreferenceExisted) { $PSNativeCommandUseErrorActionPreference = $false }
+        $gitProbe = @(& git -C $ProjectRoot rev-parse --is-inside-work-tree 2>&1)
+        $gitProbeExitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $savedPreference
+        if ($nativePreferenceExisted) { $PSNativeCommandUseErrorActionPreference = $savedNativePreference }
+    }
+    if ($gitProbeExitCode -ne 0 -or ($gitProbe -join '').Trim() -ne 'true') { $blockers.Add('Каталог проекта не находится внутри Git worktree.') }
     else {
         $changedFiles = @(& git -C $ProjectRoot status --short 2>$null)
         $details.changed_files = $changedFiles.Count

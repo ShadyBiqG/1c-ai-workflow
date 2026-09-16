@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][ValidatePattern('^TASK-[0-9]{8}-[0-9]{6}-[a-f0-9]{4}$')][string]$TaskId,
     [Parameter(Mandatory = $true)][string]$PlanFile,
@@ -15,7 +15,7 @@ if (-not (Test-Path -LiteralPath $PlanFile -PathType Leaf)) { throw "Plan file w
 if (-not (Test-Path -LiteralPath $TestPlanFile -PathType Leaf)) { throw "Test plan file was not found: $TestPlanFile" }
 $taskDirectory = Join-Path $ProjectRoot ".pipeline\tasks\$TaskId"
 $statePath = Join-Path $taskDirectory 'state.json'
-$configuration = Read-PipelineConfiguration -Path (Join-Path $ProjectRoot '.pipeline\pipeline.yaml')
+$configuration = Read-PipelineConfiguration -Path (Join-Path $ProjectRoot '.pipeline\pipeline.json')
 $state = Read-PipelineJson -Path $statePath
 $decompositionPath = Join-Path $taskDirectory 'decomposition.json'
 if ([bool]$configuration.manager.require_decomposition -and -not (Test-Path -LiteralPath $decompositionPath -PathType Leaf)) {

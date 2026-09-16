@@ -1,4 +1,4 @@
-Set-StrictMode -Version 2.0
+﻿Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
 function Write-PipelineUtf8NoBom {
@@ -55,9 +55,11 @@ function Read-PipelineConfiguration {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
         throw "Pipeline configuration was not found: $Path"
     }
+
     $configuration = [ordered]@{
-        protocol_version = 1
+        protocol_version = 2
         agents = [ordered]@{
+            allowed_models = @('gpt-5.6-terra', 'gpt-5.6-sol', 'gpt-5.6-luna')
             controller_model = 'gpt-5.6-terra'; controller_reasoning = 'high'
             manager_model = 'gpt-5.6-terra'; manager_reasoning = 'high'
             plan_model = 'gpt-5.6-sol'; plan_reasoning = 'high'
@@ -79,165 +81,120 @@ function Read-PipelineConfiguration {
         verify = [ordered]@{
             fail_on_config_dump_info = $true
             fail_on_not_run = $true
+            fail_on_unexpected_paths = $true
             runner_path = $null
             runner_config = 'v8project.yaml'
+            timeout_seconds = 1800
+            timeout_overrides = [ordered]@{}
+            depends_on = [ordered]@{ source_validation = @('build'); tests = @('build') }
+            bsl_ls_path = $null
+            bsl_ls_config = '.bsl-language-server.json'
+            bsl_lint_max_issues = 0
+            tests_scope = 'impacted'
             checks = @()
         }
     }
-    $section = $null
-    $listKey = $null
-    $checks = New-Object Collections.Generic.List[string]
-    $planApprovalFor = New-Object Collections.Generic.List[string]
-    $architectureFor = New-Object Collections.Generic.List[string]
-    $architectureReviewFor = New-Object Collections.Generic.List[string]
-    $planApprovalConfigured = $false
-    $architectureForConfigured = $false
-    $architectureReviewForConfigured = $false
-    foreach ($rawLine in Get-Content -LiteralPath $Path -Encoding UTF8) {
-        $line = ($rawLine -replace '\s+#.*$', '').TrimEnd()
-        if ([string]::IsNullOrWhiteSpace($line)) { continue }
-        if ($line -match '^version:\s*([0-9]+)\s*$' -and $rawLine -notmatch '^\s') {
-            $configuration.protocol_version = [int]$matches[1]
-            continue
-        }
-        if ($line -match '^([A-Za-z_][A-Za-z0-9_-]*):\s*$' -and $rawLine -notmatch '^\s') {
-            $section = $matches[1]
-            if ($section -notin @('agents', 'manager', 'review', 'deploy', 'verify')) { throw "Unsupported configuration section: $section" }
-            $listKey = $null
-            continue
-        }
-        if ($line -match '^\s+([A-Za-z_][A-Za-z0-9_-]*):\s*(.*?)\s*$') {
-            $key = $matches[1]
-            $value = $matches[2].Trim('"', "'")
-            $listKey = if ([string]::IsNullOrWhiteSpace($value)) { $key } else { $null }
-            if ($section -eq 'agents') {
-                if ($key -notin @(
-                    'controller_model', 'controller_reasoning', 'manager_model', 'manager_reasoning',
-                    'plan_model', 'plan_reasoning', 'work_model', 'work_reasoning', 'deploy_model', 'deploy_reasoning'
-                )) { throw "Unsupported agents setting: $key" }
-                $configuration.agents[$key] = $value
-            }
-            elseif ($section -eq 'manager') {
-                switch ($key) {
-                    'max_parallel_workers' {
-                        $parsedValue = 0
-                        if (-not [int]::TryParse($value, [ref]$parsedValue) -or $parsedValue -lt 1 -or $parsedValue -gt 8) {
-                            throw 'manager.max_parallel_workers must be an integer from 1 to 8.'
-                        }
-                        $configuration.manager.max_parallel_workers = $parsedValue
-                    }
-                    'require_test_plan' {
-                        if ($value -notin @('true', 'false')) { throw 'manager.require_test_plan must be true or false.' }
-                        $configuration.manager.require_test_plan = $value -eq 'true'
-                    }
-                    'require_decomposition' {
-                        if ($value -notin @('true', 'false')) { throw 'manager.require_decomposition must be true or false.' }
-                        $configuration.manager.require_decomposition = $value -eq 'true'
-                    }
-                    'require_architecture' {
-                        if ($value -notin @('true', 'false')) { throw 'manager.require_architecture must be true or false.' }
-                        $configuration.manager.require_architecture = $value -eq 'true'
-                    }
-                    'require_architecture_review' {
-                        if ($value -notin @('true', 'false')) { throw 'manager.require_architecture_review must be true or false.' }
-                        $configuration.manager.require_architecture_review = $value -eq 'true'
-                    }
-                    'architecture_for' {
-                        if (-not [string]::IsNullOrWhiteSpace($value)) { throw 'manager.architecture_for must be a YAML list.' }
-                        $architectureForConfigured = $true
-                    }
-                    'architecture_review_for' {
-                        if (-not [string]::IsNullOrWhiteSpace($value)) { throw 'manager.architecture_review_for must be a YAML list.' }
-                        $architectureReviewForConfigured = $true
-                    }
-                    'plan_approval_for' {
-                        if (-not [string]::IsNullOrWhiteSpace($value)) { throw 'manager.plan_approval_for must be a YAML list.' }
-                        $planApprovalConfigured = $true
-                    }
-                    default { throw "Unsupported manager setting: $key" }
-                }
-            }
-            elseif ($section -eq 'review') {
-                switch ($key) {
-                    'mode' { $configuration.review.mode = $value.ToLowerInvariant() }
-                    'available' {
-                        if ($value -notin @('true', 'false')) { throw 'review.available must be true or false.' }
-                        $configuration.review.available = $value -eq 'true'
-                    }
-                    'provider' { $configuration.review.provider = if ($value -in @('', 'null', '~')) { $null } else { $value } }
-                    default { throw "Unsupported review setting: $key" }
-                }
-            }
-            elseif ($section -eq 'deploy') {
-                switch ($key) {
-                    { $_ -in @('enabled', 'available', 'require_approval') } {
-                        if ($value -notin @('true', 'false')) { throw "deploy.$key must be true or false." }
-                        $configuration.deploy[$key] = $value -eq 'true'
-                    }
-                    'adapter' { $configuration.deploy.adapter = if ($value -in @('', 'null', '~')) { $null } else { $value } }
-                    default { throw "Unsupported deploy setting: $key" }
-                }
-            }
-            elseif ($section -eq 'verify') {
-                switch ($key) {
-                    'fail_on_config_dump_info' {
-                        if ($value -notin @('true', 'false')) { throw 'verify.fail_on_config_dump_info must be true or false.' }
-                        $configuration.verify.fail_on_config_dump_info = $value -eq 'true'
-                    }
-                    'fail_on_not_run' {
-                        if ($value -notin @('true', 'false')) { throw 'verify.fail_on_not_run must be true or false.' }
-                        $configuration.verify.fail_on_not_run = $value -eq 'true'
-                    }
-                    'runner_path' { $configuration.verify.runner_path = if ($value -in @('', 'null', '~')) { $null } else { $value } }
-                    'runner_config' {
-                        if ([string]::IsNullOrWhiteSpace($value)) { throw 'verify.runner_config must not be empty.' }
-                        $configuration.verify.runner_config = $value
-                    }
-                    'checks' {
-                        if (-not [string]::IsNullOrWhiteSpace($value)) { throw 'verify.checks must be a YAML list.' }
-                    }
-                    default { throw "Unsupported verify setting: $key" }
-                }
-            }
-            continue
-        }
-        if ($section -eq 'verify' -and $listKey -eq 'checks' -and $line -match '^\s*-\s*([A-Za-z_][A-Za-z0-9_-]*)\s*$') {
-            $checks.Add($matches[1])
-            continue
-        }
-        if ($section -eq 'manager' -and $listKey -eq 'plan_approval_for' -and $line -match '^\s*-\s*([A-Za-z_][A-Za-z0-9_-]*)\s*$') {
-            $planApprovalFor.Add($matches[1].ToLowerInvariant())
-            continue
-        }
-        if ($section -eq 'manager' -and $listKey -eq 'architecture_for' -and $line -match '^\s*-\s*([A-Za-z_][A-Za-z0-9_-]*)\s*$') {
-            $architectureFor.Add($matches[1].ToLowerInvariant())
-            continue
-        }
-        if ($section -eq 'manager' -and $listKey -eq 'architecture_review_for' -and $line -match '^\s*-\s*([A-Za-z_][A-Za-z0-9_-]*)\s*$') {
-            $architectureReviewFor.Add($matches[1].ToLowerInvariant())
-            continue
-        }
-        throw "Unsupported configuration line: $rawLine"
+
+    try { $source = [IO.File]::ReadAllText($Path, [Text.Encoding]::UTF8) | ConvertFrom-Json }
+    catch { throw "Invalid pipeline JSON in ${Path}: $($_.Exception.Message)" }
+    if ($null -eq $source) { throw "Invalid pipeline JSON in ${Path}: empty document." }
+    $allowedSections = @('version', 'protocol_version', 'agents', 'manager', 'review', 'deploy', 'verify')
+    foreach ($property in $source.PSObject.Properties) {
+        if ($property.Name -notin $allowedSections) { throw "Unsupported configuration key: $($property.Name)" }
     }
-    $configuration.verify.checks = $checks.ToArray()
-    if ($planApprovalConfigured) { $configuration.manager.plan_approval_for = $planApprovalFor.ToArray() }
-    if ($architectureForConfigured) { $configuration.manager.architecture_for = $architectureFor.ToArray() }
-    if ($architectureReviewForConfigured) { $configuration.manager.architecture_review_for = $architectureReviewFor.ToArray() }
-    if ($configuration.protocol_version -ne 1) { throw "Unsupported configuration version: $($configuration.protocol_version)" }
+    if ($source.PSObject.Properties.Name -contains 'version') { $configuration.protocol_version = $source.version }
+    if ($source.PSObject.Properties.Name -contains 'protocol_version') { $configuration.protocol_version = $source.protocol_version }
+    $dependsOnConfigured = $false
+    if ($source.PSObject.Properties.Name -contains 'verify' -and $null -ne $source.verify) {
+        $dependsOnConfigured = $source.verify.PSObject.Properties.Name -contains 'depends_on'
+    }
+    foreach ($section in @('agents', 'manager', 'review', 'deploy', 'verify')) {
+        if ($source.PSObject.Properties.Name -notcontains $section) { continue }
+        foreach ($property in $source.$section.PSObject.Properties) {
+            if (-not $configuration[$section].Contains($property.Name)) { throw "Unsupported configuration key: $section.$($property.Name)" }
+            if ($section -eq 'verify' -and $property.Name -in @('depends_on', 'timeout_overrides')) {
+                $map = [ordered]@{}
+                if ($null -ne $property.Value) {
+                    foreach ($entry in $property.Value.PSObject.Properties) { $map[$entry.Name] = $entry.Value }
+                }
+                $configuration[$section][$property.Name] = $map
+            }
+            else { $configuration[$section][$property.Name] = $property.Value }
+        }
+    }
+    if (-not $dependsOnConfigured) {
+        $configuration.verify.depends_on = [ordered]@{}
+        if ('source_validation' -in @($configuration.verify.checks) -and 'build' -in @($configuration.verify.checks)) { $configuration.verify.depends_on['source_validation'] = @('build') }
+        if ('tests' -in @($configuration.verify.checks) -and 'build' -in @($configuration.verify.checks)) { $configuration.verify.depends_on['tests'] = @('build') }
+    }
+
+    if ($configuration.protocol_version -notin @(1,2)) { throw "Unsupported configuration version: $($configuration.protocol_version)" }
+    $parsedInteger = 0
+    if (-not [int]::TryParse([string]$configuration.manager.max_parallel_workers, [ref]$parsedInteger) -or $parsedInteger -lt 1 -or $parsedInteger -gt 8) {
+        throw 'manager.max_parallel_workers must be an integer from 1 to 8.'
+    }
+    $configuration.manager.max_parallel_workers = $parsedInteger
+    foreach ($key in @('require_test_plan', 'require_decomposition', 'require_architecture', 'require_architecture_review')) {
+        if ($configuration.manager[$key] -isnot [bool]) { throw "manager.$key must be true or false." }
+    }
+    if ($configuration.review.available -isnot [bool]) { throw 'review.available must be true or false.' }
+    foreach ($key in @('enabled', 'available', 'require_approval')) {
+        if ($configuration.deploy[$key] -isnot [bool]) { throw "deploy.$key must be true or false." }
+    }
+    foreach ($key in @('fail_on_config_dump_info', 'fail_on_not_run', 'fail_on_unexpected_paths')) {
+        if ($configuration.verify[$key] -isnot [bool]) { throw "verify.$key must be true or false." }
+    }
     if ([bool]$configuration.manager.require_architecture_review -and -not [bool]$configuration.manager.require_architecture) {
         throw 'manager.require_architecture_review requires manager.require_architecture=true.'
     }
     if ($configuration.review.mode -notin @('disabled', 'optional', 'required')) { throw "Unsupported review.mode: $($configuration.review.mode)" }
-    $allowedModels = @('gpt-5.6-terra', 'gpt-5.6-sol', 'gpt-5.6-luna')
+    $allowedModels = @($configuration.agents.allowed_models)
+    if ($allowedModels.Count -eq 0) { throw 'agents.allowed_models must contain at least one model.' }
     $allowedReasoning = @('low', 'medium', 'high', 'xhigh', 'max')
     foreach ($role in @('controller', 'manager', 'plan', 'work', 'deploy')) {
-        if ($configuration.agents["${role}_model"] -notin $allowedModels) { throw "Unsupported agents.${role}_model: $($configuration.agents["${role}_model"])" }
+        if ($configuration.agents["${role}_model"] -notin $allowedModels) { throw "Unsupported agents.${role}_model '$($configuration.agents["${role}_model"])': value is not listed in agents.allowed_models." }
         if ($configuration.agents["${role}_reasoning"] -notin $allowedReasoning) { throw "Unsupported agents.${role}_reasoning: $($configuration.agents["${role}_reasoning"])" }
     }
     if ([bool]$configuration.deploy.enabled -and -not [bool]$configuration.deploy.available) {
         throw 'deploy.enabled=true requires deploy.available=true.'
     }
     if ($configuration.verify.checks.Count -eq 0) { throw 'At least one VERIFY check must be configured.' }
+    if ([string]::IsNullOrWhiteSpace([string]$configuration.verify.runner_config)) { throw 'verify.runner_config must not be empty.' }
+    if ($configuration.verify.tests_scope -notin @('impacted', 'all')) { throw "verify.tests_scope must be 'impacted' or 'all': $($configuration.verify.tests_scope)" }
+    if (-not [int]::TryParse([string]$configuration.verify.timeout_seconds, [ref]$parsedInteger) -or $parsedInteger -lt 60 -or $parsedInteger -gt 14400) {
+        throw 'verify.timeout_seconds must be an integer from 60 to 14400.'
+    }
+    $configuration.verify.timeout_seconds = $parsedInteger
+    foreach ($name in $configuration.verify.timeout_overrides.Keys) {
+        $timeout = $configuration.verify.timeout_overrides[$name]
+        if (-not [int]::TryParse([string]$timeout, [ref]$parsedInteger) -or $parsedInteger -lt 60 -or $parsedInteger -gt 14400) { throw "verify.timeout_overrides.$name must be an integer from 60 to 14400." }
+        $configuration.verify.timeout_overrides[$name] = $parsedInteger
+        if ($name -notin @($configuration.verify.checks)) { throw "verify.timeout_overrides.$name references a check outside verify.checks." }
+    }
+    if (-not [int]::TryParse([string]$configuration.verify.bsl_lint_max_issues, [ref]$parsedInteger) -or $parsedInteger -lt 0) { throw 'verify.bsl_lint_max_issues must be a non-negative integer.' }
+    $configuration.verify.bsl_lint_max_issues = $parsedInteger
+    foreach ($name in $configuration.verify.depends_on.Keys) {
+        if ($name -notin @($configuration.verify.checks)) { throw "verify.depends_on.$name references a check outside verify.checks." }
+        foreach ($dependency in @($configuration.verify.depends_on[$name])) {
+            if ($dependency -notin @($configuration.verify.checks)) { throw "verify.depends_on.$name references missing check '$dependency'." }
+        }
+    }
+    $pendingChecks = @($configuration.verify.checks)
+    $resolvedChecks = @{}
+    while ($resolvedChecks.Count -lt $pendingChecks.Count) {
+        $progress = $false
+        foreach ($name in $pendingChecks) {
+            if ($resolvedChecks.ContainsKey($name)) { continue }
+            $dependencies = @()
+            if ($configuration.verify.depends_on.Contains($name)) { $dependencies = @($configuration.verify.depends_on[$name]) }
+            $unresolved = @($dependencies | Where-Object { -not $resolvedChecks.ContainsKey([string]$_) })
+            if ($unresolved.Count -eq 0) { $resolvedChecks[$name] = $true; $progress = $true }
+        }
+        if (-not $progress) {
+            $cycle = @($pendingChecks | Where-Object { -not $resolvedChecks.ContainsKey($_) })
+            throw "verify.depends_on contains a cycle: $($cycle -join ', ')."
+        }
+    }
     $unsupportedApprovalComplexities = @($configuration.manager.plan_approval_for | Where-Object { $_ -notin @('small', 'medium', 'large', 'critical') })
     if ($unsupportedApprovalComplexities.Count -gt 0) {
         throw "Unsupported manager.plan_approval_for value: $($unsupportedApprovalComplexities -join ', ')"
@@ -280,14 +237,14 @@ function Add-PipelineJournalRecord {
         [Parameter(Mandatory = $true)][string]$Actor,
         [Parameter(Mandatory = $true)][string]$Summary,
         [string]$Rationale,
-        [string]$EvidencePath
+        [string]$EvidencePath,[object]$Payload=$null
     )
     $journalPath = Join-Path $TaskDirectory 'journal.json'
     $journal = if (Test-Path -LiteralPath $journalPath -PathType Leaf) {
         Read-PipelineJson -Path $journalPath
     }
     else {
-        [pscustomobject][ordered]@{ protocol_version = 1; entries = @() }
+        [pscustomobject][ordered]@{ protocol_version = 2; entries = @() }
     }
     $entry = [pscustomobject][ordered]@{
         id = [guid]::NewGuid().ToString('N')
@@ -328,7 +285,7 @@ function Get-PipelineAgentProfile {
         [Parameter(Mandatory = $true)]$Configuration,
         [Parameter(Mandatory = $true)][string]$Role
     )
-    $profile = switch ($Role.ToLowerInvariant()) {
+    $agentProfile = switch ($Role.ToLowerInvariant()) {
         { $_ -in @('controller', 'explorer') } { 'controller'; break }
         'manager' { 'manager'; break }
         { $_ -in @('plan', 'architect', 'architecture-reviewer', 'test-designer', 'reviewer') } { 'plan'; break }
@@ -338,20 +295,24 @@ function Get-PipelineAgentProfile {
     }
     return [pscustomobject][ordered]@{
         role = $Role.ToLowerInvariant()
-        profile = $profile
-        model = $Configuration.agents["${profile}_model"]
-        reasoning = $Configuration.agents["${profile}_reasoning"]
+        profile = $agentProfile
+        model = $Configuration.agents["${agentProfile}_model"]
+        reasoning = $Configuration.agents["${agentProfile}_reasoning"]
     }
 }
 
 function New-PipelineState {
     param([Parameter(Mandatory = $true)][string]$TaskId)
     return [pscustomobject][ordered]@{
-        protocol_version = 1
+        protocol_version = 2
         task_id = $TaskId
         status = 'plan'
+        applicability = 'pending'
+        revision = 0
         transitions = @()
         correlation_ids = @()
+        correlation_records = @()
+        resume_state = $null
         updated_at = [datetime]::UtcNow.ToString('o')
     }
 }
@@ -429,21 +390,62 @@ function Set-PipelineEvent {
         [Parameter(Mandatory = $true)][string]$Event,
         [Parameter(Mandatory = $true)][string]$CorrelationId,
         [Parameter(Mandatory = $true)]$Configuration,
-        [string]$EvidencePath
+        [string]$EvidencePath,[object]$Payload=$null
     )
-    if (@($State.correlation_ids) -contains $CorrelationId) { return $State }
+    $payloadHash=if($null -eq $Payload){''}else{([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes(($Payload|ConvertTo-Json -Depth 20)))|ForEach-Object ToString x2)-join ''}
+    if (@($State.correlation_ids) -contains $CorrelationId) { $old=@($State.correlation_records|Where-Object{$_.id -eq $CorrelationId}|Select-Object -First 1);if($old -and $old.payload_hash -ne $payloadHash){throw 'Correlation conflict: same id with different payload'};return $State }
     $key = '{0}:{1}' -f $State.status, $Event
+    if($State.status -in @('ready','cancelled')){throw "Terminal state cannot accept events: $($State.status)"}
     $target = switch ($key) {
         'plan:plan_completed' { 'work' }
+        'plan:plan_package_ready' { 'awaiting_plan_approval' }
+        'plan:material_divergence_detected' { 'awaiting_user_decision' }
+        'awaiting_user_decision:human_decision_approved' { 'plan' }
+        'awaiting_user_decision:human_decision_rejected' { 'cancelled' }
+        'awaiting_plan_approval:plan_approved' { 'work' }
+        'awaiting_plan_approval:material_divergence_detected' { 'awaiting_user_decision' }
+        'awaiting_plan_approval:plan_rejected' { 'plan' }
+        'work:work_item_started' { 'work' }
+        'work:work_item_completed' { 'work' }
+        'work:all_work_items_completed' { 'verify' }
         'work:work_completed' { 'verify' }
+        'work:nonmaterial_scope_change' { 'work' }
+        'work:replan_required' { 'plan' }
+        'plan:await_user_decision' { 'awaiting_user_decision' }
+        'awaiting_user_decision:user_decision_received' { 'plan' }
+        'plan:plan_approval_required' { 'awaiting_plan_approval' }
+        'awaiting_plan_approval:plan_approved' { 'work' }
         'verify:verify_failed' { 'verify_failed' }
+        'verify:infrastructure_failed' { 'infrastructure_failed' }
+        'verify:manual_required' { 'manual_ui_required' }
+        'infrastructure_failed:resume' { 'verify' }
+        'manual_ui_required:manual_passed' { 'verify' }
+        'manual_ui_required:manual_failed' { 'work' }
         'verify_failed:return_to_work' { 'work' }
         'verify:verify_passed' { Get-PostVerifyTarget -Configuration $Configuration }
+        'verify:product_failure' { 'verify_failed' }
+        'verify:infrastructure_failure' { $State.resume_state=if($Payload.resume_state){$Payload.resume_state}else{'verify'};'infrastructure_failed' }
+        'verify:manual_target_pending' { 'manual_ui_required' }
+        'verify:repair_started' { 'work' }
+        'verify:selective_rerun_started' { 'verify' }
+        'infrastructure_failed:provider_restored' { 'verify' }
+        'infrastructure_failed:external_evidence_accepted' { 'verify' }
+        'manual_ui_required:manual_evidence_passed' { 'verify' }
+        'manual_ui_required:manual_evidence_failed' { 'work' }
+        'manual_ui_required:manual_evidence_invalid' { 'verify' }
         'review:review_approved' { Get-PostReviewTarget -Configuration $Configuration }
-        'review:review_changes_requested' { 'work' }
+        'review:review_changes_requested_work' { 'work' }
+        'review:review_changes_requested_plan' { 'plan' }
+        'review:review_provider_failed' { 'infrastructure_failed' }
+        'review_changes_requested:return_to_work' { 'work' }
         'deploy_pending:deploy_approved' { 'deploy' }
+        'deploy_pending:deploy_rejected' { 'cancelled' }
+        'deploy:scenario_changed' { 'deploy_pending' }
         'deploy:deploy_succeeded' { 'ready' }
         'deploy:deploy_failed' { 'deploy_failed' }
+        'deploy_failed:retry_requested' { 'deploy_pending' }
+        'deploy_failed:cancel_requested' { 'cancelled' }
+        'work:cancel_requested' { 'cancelled' }
         default { throw "Illegal pipeline event: $key" }
     }
     $record = [pscustomobject][ordered]@{
@@ -452,11 +454,14 @@ function Set-PipelineEvent {
         to = $target
         correlation_id = $CorrelationId
         evidence_path = $EvidencePath
+        payload_hash = $payloadHash
         at = [datetime]::UtcNow.ToString('o')
     }
     $State.transitions = @($State.transitions) + $record
     $State.correlation_ids = @($State.correlation_ids) + $CorrelationId
+    $State.correlation_records = @($State.correlation_records) + [pscustomobject]@{id=$CorrelationId;payload_hash=$payloadHash}
     $State.status = $target
+    $State.revision = [int]$State.revision + 1
     $State.updated_at = [datetime]::UtcNow.ToString('o')
     return $State
 }

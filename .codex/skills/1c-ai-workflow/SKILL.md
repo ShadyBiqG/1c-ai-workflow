@@ -9,7 +9,7 @@ description: "Единая точка входа для задач разраб�
 
 ## Начало задачи
 
-1. Прочитать `AGENTS.md`, `.pipeline/pipeline.yaml`, `.pipeline/references/state-machine.md`, `.pipeline/references/task-artifacts.md`, `.pipeline/references/cost-quality-policy.md` и `.pipeline/references/workflow-schema.md` текущего проекта. Если pipeline в проекте не установлен, объяснить это пользователю и не выдумывать состояние.
+1. Прочитать `AGENTS.md`, `.pipeline/pipeline.json`, `.pipeline/references/state-machine.md`, `.pipeline/references/task-artifacts.md`, `.pipeline/references/cost-quality-policy.md` и `.pipeline/references/workflow-schema.md` текущего проекта. Если pipeline в проекте не установлен, объяснить это пользователю и не выдумывать состояние.
 2. Создать задачу через `New-PipelineTask.ps1` или возобновить существующую по `state.json`.
 3. Оценить сложность: `small`, `medium`, `large`, `critical`.
 4. Перед назначением агента получить его model/reasoning через `Get-PipelineAgentProfile.ps1`; использовать [маршрутизацию ролей](references/agent-profiles.md).

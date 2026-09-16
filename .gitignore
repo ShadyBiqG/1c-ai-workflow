@@ -1,2 +1,13 @@
 .pipeline/tasks/*
 !.pipeline/tasks/.gitkeep
+.pipeline/runtime/
+.pipeline/local/
+verify-logs/
+**/verify-logs/
+TestResults/
+.tmp-modules/
+__pycache__/
+*.pyc
+*.pyd
+AI_tools_for_project/
+.debug-*

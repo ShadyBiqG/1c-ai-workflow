@@ -1,9 +1,0 @@
-{
-    "protocol_version":  1,
-    "thread_id":  "019fe78d-8822-7de3-b3d5-438f90f9f652",
-    "status":  "succeeded",
-    "item_id":  "019fe79c-fc56-7513-aa3a-7074a4fd8900",
-    "item_type":  "contextCompaction",
-    "completed_at":  "2026-08-09T17:41:11.648Z",
-    "process_id":  5048
-}

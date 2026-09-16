@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "agents": {
+    "allowed_models": ["gpt-5.6-terra", "gpt-5.6-sol", "gpt-5.6-luna"],
+    "controller_model": "gpt-5.6-terra",
+    "controller_reasoning": "high",
+    "manager_model": "gpt-5.6-terra",
+    "manager_reasoning": "high",
+    "plan_model": "gpt-5.6-sol",
+    "plan_reasoning": "high",
+    "work_model": "gpt-5.6-luna",
+    "work_reasoning": "medium",
+    "deploy_model": "gpt-5.6-luna",
+    "deploy_reasoning": "medium"
+  },
+  "manager": {
+    "max_parallel_workers": 3,
+    "require_test_plan": true,
+    "require_decomposition": true,
+    "require_architecture": true,
+    "require_architecture_review": true,
+    "architecture_for": ["medium", "large", "critical"],
+    "architecture_review_for": ["medium", "large", "critical"],
+    "plan_approval_for": ["large", "critical"]
+  },
+  "review": { "mode": "disabled", "available": false, "provider": null },
+  "deploy": { "enabled": false, "available": false, "adapter": null, "require_approval": true },
+  "verify": {
+    "fail_on_config_dump_info": true,
+    "fail_on_not_run": true,
+    "fail_on_unexpected_paths": true,
+    "runner_path": null,
+    "runner_config": "v8project.yaml",
+    "timeout_seconds": 1800,
+    "timeout_overrides": {},
+    "depends_on": { "source_validation": ["build"], "tests": ["build"] },
+    "bsl_ls_path": null,
+    "bsl_ls_config": ".bsl-language-server.json",
+    "bsl_lint_max_issues": 0,
+    "tests_scope": "impacted",
+    "checks": ["git_diff", "bsl_lint", "build", "source_validation", "tests"]
+  }
+}

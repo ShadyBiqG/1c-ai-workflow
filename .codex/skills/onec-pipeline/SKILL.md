@@ -5,7 +5,7 @@ description: "Локальный persisted workflow разработки 1С: PL
 
 # 1C development pipeline
 
-Перед работой прочитать `.pipeline/pipeline.yaml`, `.pipeline/references/state-machine.md`, `.pipeline/references/workflow-schema.md` и состояние текущей задачи.
+Перед работой прочитать `.pipeline/pipeline.json`, `.pipeline/references/state-machine.md`, `.pipeline/references/workflow-schema.md` и состояние текущей задачи.
 
 Перед первой реальной задачей или после обновления установки запустить `Test-PipelineReadiness.ps1`. Состояние `blocked` запрещает начинать задачу; предупреждения должны быть учтены в плане и snapshot исходного состояния.
 

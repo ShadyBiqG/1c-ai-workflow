@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][ValidatePattern('^TASK-[0-9]{8}-[0-9]{6}-[a-f0-9]{4}$')][string]$TaskId,
     [Parameter(Mandatory = $true)][ValidateSet('succeeded', 'failed')][string]$Status,
@@ -11,7 +11,7 @@ $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'PipelineState.psm1') -Force
 if ([string]::IsNullOrWhiteSpace($ProjectRoot)) { $ProjectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..\..')) }
 if (-not (Test-Path -LiteralPath $EvidenceFile -PathType Leaf)) { throw "Deploy evidence was not found: $EvidenceFile" }
-$configuration = Read-PipelineConfiguration -Path (Join-Path $ProjectRoot '.pipeline\pipeline.yaml')
+$configuration = Read-PipelineConfiguration -Path (Join-Path $ProjectRoot '.pipeline\pipeline.json')
 $taskDirectory = Join-Path $ProjectRoot ".pipeline\tasks\$TaskId"
 $statePath = Join-Path $taskDirectory 'state.json'
 $state = Read-PipelineJson -Path $statePath
@@ -24,8 +24,8 @@ if ($approval.decision -ne 'approved' -or $approval.scenario_sha256 -ne (Get-Pip
 $runId = [datetime]::UtcNow.ToString('yyyyMMddTHHmmssfffZ')
 $savedEvidencePath = Join-Path $taskDirectory "deploy-evidence-$runId.md"
 Write-PipelineUtf8NoBom -Path $savedEvidencePath -Text ([IO.File]::ReadAllText((Resolve-Path $EvidenceFile), [Text.Encoding]::UTF8))
-$event = if ($Status -eq 'succeeded') { 'deploy_succeeded' } else { 'deploy_failed' }
-$state = Set-PipelineEvent -State $state -Event $event -CorrelationId "${TaskId}:${event}:$runId" -Configuration $configuration -EvidencePath $savedEvidencePath
+$pipelineEvent = if ($Status -eq 'succeeded') { 'deploy_succeeded' } else { 'deploy_failed' }
+$state = Set-PipelineEvent -State $state -Event $pipelineEvent -CorrelationId "${TaskId}:${pipelineEvent}:$runId" -Configuration $configuration -EvidencePath $savedEvidencePath
 Write-AtomicJson -Path $statePath -Value $state
 Add-PipelineJournalRecord -TaskDirectory $taskDirectory -Type 'step' -Phase 'deploy' -Actor 'deploy' -Summary "Deploy: $Status; следующее состояние: $($state.status)." -EvidencePath $savedEvidencePath | Out-Null
 [pscustomobject][ordered]@{ task_id = $TaskId; status = $Status; next_state = $state.status; evidence_path = $savedEvidencePath } | ConvertTo-Json -Depth 5

@@ -1,2 +1,6 @@
 tasks/*
 !tasks/.gitkeep
+runtime/
+local/
+verify-logs/
+**/verify-logs/

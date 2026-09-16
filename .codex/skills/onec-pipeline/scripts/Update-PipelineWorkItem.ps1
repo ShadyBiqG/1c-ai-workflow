@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][ValidatePattern('^TASK-[0-9]{8}-[0-9]{6}-[a-f0-9]{4}$')][string]$TaskId,
     [Parameter(Mandatory = $true)][string]$WorkItemId,
@@ -17,9 +17,9 @@ $state = Read-PipelineJson -Path (Join-Path $taskDirectory 'state.json')
 if ($state.status -ne 'work') { throw "Work items can be updated only in work state, got: $($state.status)" }
 $workItemsPath = Join-Path $taskDirectory 'work-items.json'
 $workItems = Read-PipelineJson -Path $workItemsPath
-$matches = @($workItems.items | Where-Object { $_.id -eq $WorkItemId })
-if ($matches.Count -ne 1) { throw "Work item was not found or is duplicated: $WorkItemId" }
-$item = $matches[0]
+$matchedItems = @($workItems.items | Where-Object { $_.id -eq $WorkItemId })
+if ($matchedItems.Count -ne 1) { throw "Work item was not found or is duplicated: $WorkItemId" }
+$item = $matchedItems[0]
 $allowed = @{
     pending = @('in_progress')
     in_progress = @('completed', 'failed')
