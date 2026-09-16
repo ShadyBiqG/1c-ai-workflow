@@ -53,6 +53,31 @@ function Write-PipelineImmutableJson {
     return Write-PipelineImmutableText -Path $Path -Text ($Value | ConvertTo-Json -Depth 60)
 }
 
+function Write-PipelineAtomicJson {
+    param(
+        [Parameter(Mandatory=$true)][string]$Path,
+        [Parameter(Mandatory=$true)]$Value
+    )
+    $directory = Split-Path -Parent $Path
+    [IO.Directory]::CreateDirectory($directory) | Out-Null
+    $temporaryPath = Join-Path $directory ([IO.Path]::GetRandomFileName())
+    $backupPath = Join-Path $directory ([IO.Path]::GetRandomFileName())
+    $encoding = New-Object Text.UTF8Encoding($false)
+    [IO.File]::WriteAllText($temporaryPath, ($Value | ConvertTo-Json -Depth 60), $encoding)
+    try {
+        if (Test-Path -LiteralPath $Path -PathType Leaf) {
+            [IO.File]::Replace($temporaryPath, $Path, $backupPath)
+        }
+        else {
+            [IO.File]::Move($temporaryPath, $Path)
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $temporaryPath) { Remove-Item -LiteralPath $temporaryPath -Force }
+        if (Test-Path -LiteralPath $backupPath) { Remove-Item -LiteralPath $backupPath -Force }
+    }
+}
+
 function Test-PipelineAppendOnlyArtifact {
     param([Parameter(Mandatory=$true)][string]$Path,[string]$ExpectedSha256)
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $false }
@@ -105,10 +130,14 @@ function New-PipelineTombstoneInventory {
         $value = if($Baseline.paths -is [Collections.IDictionary]) {$Baseline.paths[$name]} else {$Baseline.paths.$name}
         $worktree = if($value.PSObject.Properties.Name -contains 'worktree'){$value.worktree}else{$value}
         $head = if($value.PSObject.Properties.Name -contains 'head'){$value.head}else{$null}; $index = if($value.PSObject.Properties.Name -contains 'index'){$value.index}else{$null}
+        $headExists = $null -ne $head -and $head.PSObject.Properties.Name -contains 'exists' -and [bool]$head.exists
+        $indexExists = $null -ne $index -and $index.PSObject.Properties.Name -contains 'exists' -and [bool]$index.exists
+        $headOid = if($headExists -and $head.PSObject.Properties.Name -contains 'blob_oid'){[string]$head.blob_oid}else{$null}
+        $indexOid = if($indexExists -and $index.PSObject.Properties.Name -contains 'blob_oid'){[string]$index.blob_oid}else{$null}
         $deletedFragments=@()
-        $htext=if($ProjectRoot -and $head.exists){Read-BlobText $head.blob_oid $name}else{$null};$itext=if($ProjectRoot -and $index.exists){Read-BlobText $index.blob_oid $name}else{$null};$hfrag=Extract-Fragments $htext $name 'H';$ifrag=Extract-Fragments $itext $name 'I';$ifKeys=@($ifrag|ForEach-Object{Get-PipelineSemanticKey $_});foreach($hf in $hfrag){if((Get-PipelineSemanticKey $hf) -notin $ifKeys){$hf.source='H_to_I';$deletedFragments+=$hf}}
+        $htext=if($ProjectRoot -and $headExists){Read-BlobText $headOid $name}else{$null};$itext=if($ProjectRoot -and $indexExists){Read-BlobText $indexOid $name}else{$null};$hfrag=Extract-Fragments $htext $name 'H';$ifrag=Extract-Fragments $itext $name 'I';$ifKeys=@($ifrag|ForEach-Object{Get-PipelineSemanticKey $_});foreach($hf in $hfrag){if((Get-PipelineSemanticKey $hf) -notin $ifKeys){$hf.source='H_to_I';$deletedFragments+=$hf}}
         $wtext=if($worktree.PSObject.Properties.Name -contains 'text'){$worktree.text}else{$null};if($itext -and $wtext -and $itext -ne $wtext){foreach($if in (Extract-Fragments $itext $name 'I_to_W0')){$wfr=@(Extract-Fragments $wtext $name 'W0');$wkeys=@($wfr|ForEach-Object{Get-PipelineSemanticKey $_});if((Get-PipelineSemanticKey $if) -notin $wkeys){$deletedFragments+=$if}}}
-        if(($head -and $head.blob_oid -and (-not $index.exists)) -or (-not [bool]$worktree.exists) -or $deletedFragments.Count -gt 0) {
+        if(($headExists -and (-not $indexExists)) -or (-not [bool]$worktree.exists) -or $deletedFragments.Count -gt 0) {
             $deleted[$name]=[pscustomobject][ordered]@{path=$name;source_transition=@($deletedFragments|ForEach-Object source|Sort-Object -Unique);sha256=$worktree.sha256;kind=$worktree.kind;fragments=$deletedFragments}
         }
     }
@@ -122,4 +151,4 @@ function Test-PipelineLegacyRestoration {
     return [pscustomobject][ordered]@{ passed=($findings.Count -eq 0); findings=$findings }
 }
 
-Export-ModuleMember -Function Get-PipelineCanonicalPath,Get-PipelineSha256Bytes,Get-PipelineContentFingerprint,Invoke-PipelineGitRaw,Get-PipelineNulRecords,Get-PipelineGitInventory,Get-PipelineSemanticFragmentsStrict,Get-PipelineSemanticKey,Test-PipelineSemanticMatch,Write-PipelineImmutableText,Write-PipelineImmutableJson,Test-PipelineAppendOnlyArtifact,New-PipelineBaselineRecord,New-PipelineTombstoneInventory,Get-PipelineTaskDelta,Test-PipelineLegacyRestoration
+Export-ModuleMember -Function Get-PipelineCanonicalPath,Get-PipelineSha256Bytes,Get-PipelineContentFingerprint,Invoke-PipelineGitRaw,Get-PipelineNulRecords,Get-PipelineGitInventory,Get-PipelineSemanticFragmentsStrict,Get-PipelineSemanticKey,Test-PipelineSemanticMatch,Write-PipelineImmutableText,Write-PipelineImmutableJson,Write-PipelineAtomicJson,Test-PipelineAppendOnlyArtifact,New-PipelineBaselineRecord,New-PipelineTombstoneInventory,Get-PipelineTaskDelta,Test-PipelineLegacyRestoration

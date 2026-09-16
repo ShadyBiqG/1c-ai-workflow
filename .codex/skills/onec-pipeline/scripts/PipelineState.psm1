@@ -390,76 +390,99 @@ function Set-PipelineEvent {
         [Parameter(Mandatory = $true)][string]$Event,
         [Parameter(Mandatory = $true)][string]$CorrelationId,
         [Parameter(Mandatory = $true)]$Configuration,
-        [string]$EvidencePath,[object]$Payload=$null
+        [string]$EvidencePath,
+        [object]$Payload=$null
     )
-    $payloadHash=if($null -eq $Payload){''}else{([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes(($Payload|ConvertTo-Json -Depth 20)))|ForEach-Object ToString x2)-join ''}
-    if (@($State.correlation_ids) -contains $CorrelationId) { $old=@($State.correlation_records|Where-Object{$_.id -eq $CorrelationId}|Select-Object -First 1);if($old -and $old.payload_hash -ne $payloadHash){throw 'Correlation conflict: same id with different payload'};return $State }
-    $key = '{0}:{1}' -f $State.status, $Event
+    foreach ($property in @(
+        @{Name='revision';Value=0}, @{Name='transitions';Value=@()}, @{Name='correlation_ids';Value=@()},
+        @{Name='correlation_records';Value=@()}, @{Name='resume_state';Value=$null}, @{Name='origin_state';Value=$null}
+    )) { if ($State.PSObject.Properties.Name -notcontains $property.Name) { $State | Add-Member NoteProperty $property.Name $property.Value } }
+
+    # Compatibility aliases are isolated here until all v1 callers are migrated.
+    $legacyAliases = @{
+        'plan:plan_completed'='plan_completed_legacy'; 'work:work_completed'='all_work_items_completed'
+        'verify:verify_failed'='product_failure'; 'verify_failed:return_to_work'='repair_started'
+        'review:review_changes_requested'='review_changes_requested_work'; 'verify:manual_required'='manual_target_pending'
+        'manual_ui_required:manual_passed'='manual_evidence_passed'; 'manual_ui_required:manual_failed'='manual_evidence_failed'
+        'verify:infrastructure_failed'='infrastructure_failure'; 'infrastructure_failed:resume'='provider_restored'
+        'plan:await_user_decision'='material_divergence_detected'; 'awaiting_user_decision:user_decision_received'='human_decision_approved'
+        'plan:plan_approval_required'='plan_package_ready'
+    }
+    $originalEvent = $Event
+    $aliasKey = '{0}:{1}' -f $State.status,$Event
+    if ($legacyAliases.ContainsKey($aliasKey)) { $Event = $legacyAliases[$aliasKey] }
+
+    $payloadJson = if($null -eq $Payload){'null'}else{$Payload|ConvertTo-Json -Depth 30 -Compress}
+    $bindingText = '{0}|{1}|{2}|{3}' -f [string]$State.status,$Event,[string]$EvidencePath,$payloadJson
+    $sha=[Security.Cryptography.SHA256]::Create();try{$bindingHash=([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($bindingText)))).Replace('-','').ToLowerInvariant()}finally{$sha.Dispose()}
+    if (@($State.correlation_ids) -contains $CorrelationId) {
+        $old=@($State.correlation_records|Where-Object{$_.id -eq $CorrelationId}|Select-Object -First 1)
+        if ($old.Count -eq 0 -or $old[0].binding_hash -ne $bindingHash) { throw 'Correlation conflict: same id with different event or payload' }
+        return $State
+    }
     if($State.status -in @('ready','cancelled')){throw "Terminal state cannot accept events: $($State.status)"}
-    $target = switch ($key) {
-        'plan:plan_completed' { 'work' }
-        'plan:plan_package_ready' { 'awaiting_plan_approval' }
-        'plan:material_divergence_detected' { 'awaiting_user_decision' }
-        'awaiting_user_decision:human_decision_approved' { 'plan' }
-        'awaiting_user_decision:human_decision_rejected' { 'cancelled' }
-        'awaiting_plan_approval:plan_approved' { 'work' }
-        'awaiting_plan_approval:material_divergence_detected' { 'awaiting_user_decision' }
-        'awaiting_plan_approval:plan_rejected' { 'plan' }
-        'work:work_item_started' { 'work' }
-        'work:work_item_completed' { 'work' }
-        'work:all_work_items_completed' { 'verify' }
-        'work:work_completed' { 'verify' }
-        'work:nonmaterial_scope_change' { 'work' }
-        'work:replan_required' { 'plan' }
-        'plan:await_user_decision' { 'awaiting_user_decision' }
-        'awaiting_user_decision:user_decision_received' { 'plan' }
-        'plan:plan_approval_required' { 'awaiting_plan_approval' }
-        'awaiting_plan_approval:plan_approved' { 'work' }
-        'verify:verify_failed' { 'verify_failed' }
-        'verify:infrastructure_failed' { 'infrastructure_failed' }
-        'verify:manual_required' { 'manual_ui_required' }
-        'infrastructure_failed:resume' { 'verify' }
-        'manual_ui_required:manual_passed' { 'verify' }
-        'manual_ui_required:manual_failed' { 'work' }
-        'verify_failed:return_to_work' { 'work' }
-        'verify:verify_passed' { Get-PostVerifyTarget -Configuration $Configuration }
-        'verify:product_failure' { 'verify_failed' }
-        'verify:infrastructure_failure' { $State.resume_state=if($Payload.resume_state){$Payload.resume_state}else{'verify'};'infrastructure_failed' }
-        'verify:manual_target_pending' { 'manual_ui_required' }
-        'verify:repair_started' { 'work' }
-        'verify:selective_rerun_started' { 'verify' }
-        'infrastructure_failed:provider_restored' { 'verify' }
-        'infrastructure_failed:external_evidence_accepted' { 'verify' }
-        'manual_ui_required:manual_evidence_passed' { 'verify' }
-        'manual_ui_required:manual_evidence_failed' { 'work' }
-        'manual_ui_required:manual_evidence_invalid' { 'verify' }
-        'review:review_approved' { Get-PostReviewTarget -Configuration $Configuration }
-        'review:review_changes_requested_work' { 'work' }
-        'review:review_changes_requested_plan' { 'plan' }
-        'review:review_provider_failed' { 'infrastructure_failed' }
-        'review_changes_requested:return_to_work' { 'work' }
-        'deploy_pending:deploy_approved' { 'deploy' }
-        'deploy_pending:deploy_rejected' { 'cancelled' }
-        'deploy:scenario_changed' { 'deploy_pending' }
-        'deploy:deploy_succeeded' { 'ready' }
-        'deploy:deploy_failed' { 'deploy_failed' }
-        'deploy_failed:retry_requested' { 'deploy_pending' }
-        'deploy_failed:cancel_requested' { 'cancelled' }
-        'work:cancel_requested' { 'cancelled' }
-        default { throw "Illegal pipeline event: $key" }
+
+    $from = [string]$State.status
+    if ($Event -eq 'cancel_requested') { $target='cancelled' }
+    elseif ($Event -eq 'material_divergence_detected' -and $from -in @('plan','work','verify','review','awaiting_plan_approval')) { $State.origin_state=$from; $target='awaiting_user_decision' }
+    elseif ($Event -eq 'bound_artifact_changed' -and $from -in @('awaiting_plan_approval','work','verify','review','deploy_pending')) { $target='plan' }
+    else {
+        $key = '{0}:{1}' -f $from,$Event
+        $target = switch ($key) {
+            'plan:plan_completed_legacy' { 'work' }
+            'plan:plan_package_ready' { if($null -ne $Payload -and $Payload.PSObject.Properties.Name -contains 'approval_required' -and -not [bool]$Payload.approval_required){'work'}else{'awaiting_plan_approval'} }
+            'awaiting_user_decision:human_decision_approved' { if($State.origin_state){[string]$State.origin_state}else{'plan'} }
+            'awaiting_user_decision:human_decision_rejected' { if($State.origin_state){[string]$State.origin_state}else{'plan'} }
+            'awaiting_plan_approval:plan_approved' { 'work' }
+            'awaiting_plan_approval:plan_rejected' { 'plan' }
+            'work:work_item_started' { 'work' }
+            'work:work_item_completed' { 'work' }
+            'work:all_work_items_completed' { 'verify' }
+            'work:nonmaterial_scope_change' { 'plan' }
+            'work:replan_required' { 'plan' }
+            'verify:verify_passed' { Get-PostVerifyTarget -Configuration $Configuration }
+            'verify:product_failure' { 'verify_failed' }
+            'verify:infrastructure_failure' { $State.resume_state='verify';'infrastructure_failed' }
+            'verify:manual_target_pending' { 'manual_ui_required' }
+            'verify:nonmaterial_scope_change' { 'plan' }
+            'verify:material_divergence_detected' { $State.origin_state='verify';'awaiting_user_decision' }
+            'verify_failed:repair_started' { 'work' }
+            'verify_failed:replan_required' { 'plan' }
+            'infrastructure_failed:selective_rerun_started' { if($State.resume_state){[string]$State.resume_state}else{'verify'} }
+            'infrastructure_failed:external_evidence_accepted' { if($State.resume_state){[string]$State.resume_state}else{'verify'} }
+            'infrastructure_failed:provider_restored' { if($State.resume_state){[string]$State.resume_state}else{'verify'} }
+            'manual_ui_required:manual_evidence_passed' { 'verify' }
+            'manual_ui_required:manual_evidence_failed' { 'work' }
+            'manual_ui_required:manual_evidence_invalid' { 'manual_ui_required' }
+            'review:review_approved' { Get-PostReviewTarget -Configuration $Configuration }
+            'review:review_changes_requested_work' { 'review_changes_requested' }
+            'review:review_changes_requested_plan' { 'plan' }
+            'review:review_provider_failed' { $State.resume_state='review';'infrastructure_failed' }
+            'review_changes_requested:repair_started' { 'work' }
+            'review_changes_requested:replan_required' { 'plan' }
+            'deploy_pending:deploy_approved' { 'deploy' }
+            'deploy_pending:deploy_rejected' { 'cancelled' }
+            'deploy_pending:scenario_changed' { 'plan' }
+            'deploy:deploy_succeeded' { 'ready' }
+            'deploy:deploy_failed' { 'deploy_failed' }
+            'deploy_failed:retry_requested' { 'deploy_pending' }
+            'deploy_failed:replan_required' { 'plan' }
+            default { throw "Illegal pipeline event: $key" }
+        }
     }
     $record = [pscustomobject][ordered]@{
-        from = [string]$State.status
+        from = $from
         event = $Event
+        original_event = $originalEvent
         to = $target
         correlation_id = $CorrelationId
         evidence_path = $EvidencePath
-        payload_hash = $payloadHash
+        binding_hash = $bindingHash
         at = [datetime]::UtcNow.ToString('o')
     }
     $State.transitions = @($State.transitions) + $record
     $State.correlation_ids = @($State.correlation_ids) + $CorrelationId
-    $State.correlation_records = @($State.correlation_records) + [pscustomobject]@{id=$CorrelationId;payload_hash=$payloadHash}
+    $State.correlation_records = @($State.correlation_records) + [pscustomobject]@{id=$CorrelationId;binding_hash=$bindingHash}
     $State.status = $target
     $State.revision = [int]$State.revision + 1
     $State.updated_at = [datetime]::UtcNow.ToString('o')

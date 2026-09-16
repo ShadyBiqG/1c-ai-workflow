@@ -15,13 +15,15 @@ Install-Module Pester -MinimumVersion 5.7.1 -Scope CurrentUser
 & .\.codex\skills\onec-pipeline\tests\Invoke-PipelineMvpTests.ps1
 ```
 
-## Глобальный навык
+## Установка только навыка в проект
 
 ```powershell
-& .\scripts\Install-WorkflowSkill.ps1
+& .\scripts\Install-WorkflowSkill.ps1 -TargetProject 'F:\Work\my-1c-project'
 # обновление
-& .\scripts\Install-WorkflowSkill.ps1 -Force
+& .\scripts\Install-WorkflowSkill.ps1 -TargetProject 'F:\Work\my-1c-project' -Force
 ```
+
+Навык устанавливается в `.codex/skills/1c-ai-workflow` выбранного проекта. Глобальная установка в профиле Codex не используется.
 
 ## Установка в проект
 

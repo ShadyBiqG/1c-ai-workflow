@@ -1,29 +1,23 @@
 ﻿[CmdletBinding()]
 param(
-    [string]$ProjectRoot,
-    [string]$CodexHome,
+    [Parameter(Mandatory)]
+    [string]$TargetProject,
     [switch]$Force
 )
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
-if ([string]::IsNullOrWhiteSpace($ProjectRoot)) {
-    $ProjectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-}
-if ([string]::IsNullOrWhiteSpace($CodexHome)) {
-    $CodexHome = if (-not [string]::IsNullOrWhiteSpace($env:CODEX_HOME)) {
-        $env:CODEX_HOME
-    }
-    else {
-        Join-Path ([Environment]::GetFolderPath('UserProfile')) '.codex'
-    }
+if (-not (Test-Path -LiteralPath $TargetProject -PathType Container)) {
+    throw "Target project was not found: $TargetProject"
 }
 
-$sourcePath = [IO.Path]::GetFullPath((Join-Path $ProjectRoot '.codex\skills\1c-ai-workflow'))
-$skillsRoot = [IO.Path]::GetFullPath((Join-Path $CodexHome 'skills'))
+$sourceRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$targetRoot = [IO.Path]::GetFullPath($TargetProject)
+$sourcePath = [IO.Path]::GetFullPath((Join-Path $sourceRoot '.codex\skills\1c-ai-workflow'))
+$skillsRoot = [IO.Path]::GetFullPath((Join-Path $targetRoot '.codex\skills'))
 $destinationPath = [IO.Path]::GetFullPath((Join-Path $skillsRoot '1c-ai-workflow'))
-$expectedPrefix = $skillsRoot.TrimEnd('\') + '\'
+$expectedPrefix = $targetRoot.TrimEnd('\') + '\'
 if (-not $destinationPath.StartsWith($expectedPrefix, [StringComparison]::OrdinalIgnoreCase)) {
     throw "Unsafe skill destination: $destinationPath"
 }
